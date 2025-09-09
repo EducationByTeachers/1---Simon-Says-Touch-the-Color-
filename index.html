@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simon Says: Touch the Color!</title>
+    
+    <style>
+        :root {
+            --yellow: #FFEB3B;
+            --blue: #2196F3;
+            --red: #F44336;
+            --white: #FFFFFF;
+            --black: #212121;
+            --green: #4CAF50;
+            --grey: #9E9E9E;   /* Gris */
+            --orange: #FF9800; /* Naranja */
+            --purple: #9C27B0; /* Púrpura */
+            --pink: #FFB6C1;   /* Rosado */
+            --brown: #795548;  /* Marrón */
+        }
+
+        @keyframes confeti-fall {
+            0% { transform: translateY(-100vh) rotateZ(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotateZ(360deg); opacity: 0; }
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #eef5ff;
+            color: #333;
+            text-align: center;
+            margin: 0;
+            padding: 1rem;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .main-container {
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #0056b3;
+            font-size: clamp(2em, 6vw, 2.5em);
+            margin-bottom: 0.5rem;
+        }
+
+        .instructions {
+            font-size: clamp(1em, 3vw, 1.2em);
+            color: #555;
+            margin: 0 0 1.5rem 0;
+        }
+
+        #start-btn {
+            padding: 15px 30px;
+            font-size: clamp(1.2em, 4vw, 1.5em);
+            font-weight: bold;
+            color: white;
+            background-color: #28a745;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: background-color 0.3s;
+            box-shadow: 0 4px #1e7e34;
+        }
+
+        #start-btn:hover { background-color: #218838; }
+        #start-btn:active { transform: translateY(2px); box-shadow: 0 2px #1e7e34; }
+
+        .game-panel {
+            display: none;
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .score-container {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 20px;
+        }
+        
+        #current-instruction {
+            font-size: clamp(1.5em, 5vw, 2.2em);
+            color: #d9534f;
+            font-weight: bold;
+            margin: 15px 0;
+            height: 50px;
+            line-height: 1.2;
+        }
+        
+        #current-instruction span { text-transform: capitalize; }
+
+        .squares-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* Ajustado a 4 columnas */
+            gap: 1rem;
+            margin-top: 20px;
+        }
+
+        .square {
+            aspect-ratio: 1 / 1;
+            border-radius: 12px;
+            border: 4px solid #333;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .square.lit {
+            transform: scale(1.08);
+            box-shadow: 0 0 25px 10px white;
+        }
+
+        #amarillo { background-color: var(--yellow); }
+        #azul { background-color: var(--blue); }
+        #rojo { background-color: var(--red); }
+        #blanco { background-color: var(--white); }
+        #negro { background-color: var(--black); }
+        #verde { background-color: var(--green); }
+        #gris { background-color: var(--grey); }
+        #naranja { background-color: var(--orange); }
+        #purpura { background-color: var(--purple); }
+        #rosado { background-color: var(--pink); }
+        #marron { background-color: var(--brown); }
+
+        .message-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 1000;
+        }
+
+        .message-overlay .symbol {
+            font-size: clamp(150px, 30vw, 250px);
+            font-weight: bold;
+            text-shadow: 0 0 20px black;
+            line-height: 1;
+        }
+        .message-overlay .message-text {
+            font-size: clamp(30px, 8vw, 60px);
+            color: white;
+            font-weight: bold;
+        }
+        
+        #fail-message .symbol { color: var(--red); }
+        #win-message .symbol { color: var(--green); }
+        
+        #confetti-container {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+        }
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            opacity: 0;
+            animation: confeti-fall 3s ease-in forwards;
+        }
+    </style>
+    </head>
+<body>
+
+    <div id="confetti-container"></div>
+
+    <div class="main-container">
+        <h1>Simon Says: Touch the Color!</h1>
+        <p class="instructions">Press 'Start' and touch the color that Simon says!</p>
+        <button id="start-btn">Start</button>
+
+        <div id="game-panel" class="game-panel">
+            <div class="score-container">
+                Score: <span id="score">0</span>
+            </div>
+            
+            <h2 id="current-instruction"></h2>
+            
+            <div class="squares-container">
+                <div class="square" data-color="amarillo" id="amarillo"></div>
+                <div class="square" data-color="azul" id="azul"></div>
+                <div class="square" data-color="rojo" id="rojo"></div>
+                <div class="square" data-color="blanco" id="blanco"></div>
+                <div class="square" data-color="negro" id="negro"></div>
+                <div class="square" data-color="verde" id="verde"></div>
+                <div class="square" data-color="gris" id="gris"></div>
+                <div class="square" data-color="naranja" id="naranja"></div>
+                <div class="square" data-color="purpura" id="purpura"></div>
+                <div class="square" data-color="rosado" id="rosado"></div>
+                <div class="square" data-color="marron" id="marron"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="fail-message" class="message-overlay">
+        <div class="symbol">✗</div>
+        <div class="message-text">Game Over</div>
+    </div>
+
+    <div id="win-message" class="message-overlay">
+        <div class="symbol">✓</div>
+        <div class="message-text">You Win!</div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const startBtn = document.getElementById('start-btn');
+        const gamePanel = document.getElementById('game-panel');
+        const squares = document.querySelectorAll('.square');
+        const currentInstructionElem = document.getElementById('current-instruction');
+        const scoreElem = document.getElementById('score');
+        const failMessage = document.getElementById('fail-message');
+        const winMessage = document.getElementById('win-message');
+        const confettiContainer = document.getElementById('confetti-container');
+
+        // --- Game Variables ---
+        const colors = ['amarillo', 'azul', 'rojo', 'blanco', 'negro', 'verde', 'gris', 'naranja', 'purpura', 'rosado', 'marron'];
+        const colorsHex = {
+            amarillo: '#FFEB3B', azul: '#2196F3', rojo: '#F44336',
+            blanco: '#FFFFFF', negro: '#212121', verde: '#4CAF50',
+            gris: '#9E9E9E', naranja: '#FF9800', purpura: '#9C27B0',
+            rosado: '#E91E63', marron: '#795548'
+        };
+        let currentColor = '';
+        let score = 0;
+        const SCORE_TO_WIN = 10;
+
+        // --- Event Listeners ---
+        startBtn.addEventListener('click', startGame);
+        squares.forEach(square => {
+            square.addEventListener('click', handlePlayerClick);
+        });
+
+        // --- Game Functions ---
+        function startGame() {
+            startBtn.style.display = 'none';
+            gamePanel.style.display = 'block';
+            score = 0;
+            updateScore();
+            newInstruction();
+        }
+
+        function newInstruction() {
+            let newColor;
+            do {
+                newColor = colors[Math.floor(Math.random() * colors.length)];
+            } while (newColor === currentColor);
+            
+            currentColor = newColor;
+            
+            currentInstructionElem.innerHTML = `Touch the color: <span>${currentColor}</span>`;
+        }
+        
+        function handlePlayerClick(event) {
+            const pressedColor = event.target.dataset.color;
+            
+            if (pressedColor === currentColor) {
+                // --- CORRECT ---
+                score++;
+                updateScore();
+                lightUpSquare(pressedColor, true);
+
+                if (score >= SCORE_TO_WIN) {
+                    showWin();
+                } else {
+                    setTimeout(newInstruction, 400);
+                }
+            } else {
+                // --- INCORRECT ---
+                lightUpSquare(pressedColor, false);
+                gameOver();
+            }
+        }
+
+        function updateScore() {
+            scoreElem.textContent = score;
+        }
+
+        // --- Game Over and Win Logic ---
+        function gameOver() {
+            gamePanel.style.pointerEvents = 'none';
+            failMessage.style.display = 'flex';
+            
+            setTimeout(() => {
+                failMessage.style.display = 'none';
+                startBtn.style.display = 'block';
+                gamePanel.style.display = 'none';
+                gamePanel.style.pointerEvents = 'auto';
+            }, 3000);
+        }
+
+        function showWin() {
+            gamePanel.style.pointerEvents = 'none';
+            winMessage.style.display = 'flex';
+            launchConfetti();
+            
+            // ESTE BLOQUE DE CÓDIGO REGRESA EL JUEGO AL INICIO
+            setTimeout(() => {
+                winMessage.style.display = 'none';    // Oculta el mensaje de victoria
+                startBtn.style.display = 'block';     // Muestra el botón de "Start"
+                gamePanel.style.display = 'none';     // Oculta el panel del juego
+                gamePanel.style.pointerEvents = 'auto'; // Reactiva los clics
+            }, 4000); // Espera 4 segundos para que se vea la celebración
+        }
+
+        // --- Visual Effects ---
+        function launchConfetti() {
+            const amount = 150;
+            for (let i = 0; i < amount; i++) {
+                const confetti = document.createElement('div');
+                confetti.classList.add('confetti');
+                
+                const colorKey = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.backgroundColor = colorsHex[colorKey];
+                
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.animationDelay = Math.random() * 2 + 's';
+                confetti.style.transform = `scale(${Math.random() * 0.8 + 0.5})`;
+                confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+
+                confettiContainer.appendChild(confetti);
+                
+                setTimeout(() => {
+                    confetti.remove();
+                }, 4000);
+            }
+        }
+
+        function lightUpSquare(color, wasCorrect) {
+            const square = document.getElementById(color);
+            square.classList.add('lit');
+            
+            if (wasCorrect) {
+                square.style.borderColor = 'var(--green)';
+            } else {
+                square.style.borderColor = 'var(--red)';
+            }
+
+            setTimeout(() => {
+                square.classList.remove('lit');
+                square.style.borderColor = '#333';
+            }, 400);
+        }
+    </script>
+    </body>
+</html>
